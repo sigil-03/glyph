@@ -21,14 +21,6 @@ pub enum Error {
     TokioSendError(#[from] tokio::sync::mpsc::error::SendError<OperatorMessage>),
 }
 
-#[derive(Parser)]
-struct LaunchOptions {
-    #[arg(short, long)]
-    target_url: Url,
-    #[arg(short, long)]
-    prompt_file: String,
-}
-
 struct Cli {
     input: String,
 }
@@ -79,7 +71,7 @@ struct LlamaServerResponse {
     content: String,
 }
 
-// template
+// generate prompt using template
 // <|im_start|>system<|im_sep|>You are a helpful assistant<|im_end|><|im_start|>user<|im_sep|>Hello<|im_end|><|im_start|>assistant<|im_sep|>
 fn generate_prompt(system_prompt: &str, user_prompt: &str) -> String {
     let out = format!(
@@ -90,6 +82,14 @@ fn generate_prompt(system_prompt: &str, user_prompt: &str) -> String {
 
 fn load_prompt_from_file(file: &str) -> String {
     std::fs::read_to_string(file).expect("Could not read input file")
+}
+
+#[derive(Parser)]
+struct LaunchOptions {
+    #[arg(short, long)]
+    target_url: Url,
+    #[arg(short, long)]
+    prompt_file: String,
 }
 
 struct GlyphDispatch {
@@ -127,10 +127,6 @@ impl GlyphDispatch {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    // let (_oi_tx, mut oi_rx) = OperatorInterface::spawn();
-    // let oi_rx_fut = oi_rx.recv().fuse();
-    // // let glyph_rx_fut
-    // tokio::pin!(rx_fut);
     let config = LaunchOptions::parse();
     let mut user_cli = UserCli::new();
     let glyph_dispatch = GlyphDispatch::new(config);
@@ -141,16 +137,5 @@ async fn main() -> Result<(), Error> {
                 glyph_dispatch.handle_user_input(input).await;
             }
         }
-        // select! {
-        //     Some(msg) = &mut rx_fut => {
-        //         msg.print();
-        //     }
-        // }
-        // tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
-        // oi_tx
-        //     .send(OperatorMessage {
-        //         message: String::from("Test2"),
-        //     })
-        //     .await?;
     }
 }
