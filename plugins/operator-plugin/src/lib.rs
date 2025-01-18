@@ -98,3 +98,6 @@ impl OperatorInterface {
         }
     }
 }
+
+// TODO:
+// write the cli which will then operate on the tx and rx channels
