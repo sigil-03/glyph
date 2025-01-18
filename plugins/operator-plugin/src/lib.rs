@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
-use futures::{FutureExt, future::Fuse, pin_mut};
+use futures::{FutureExt, future::Fuse};
 pub struct ChannelInterface<TX, RX>
 where
     TX: std::marker::Send + 'static,
@@ -75,7 +75,6 @@ pub async fn user_input() -> OperatorMessage {
 impl OperatorInterface {
     pub async fn rx(&mut self) -> Option<OperatorMessage> {
         let msg = self.interface.rx.recv().await;
-        println!("RX: {:#?}", msg);
         msg
     }
     pub async fn tx(tx: &Sender<OperatorMessage>, msg: OperatorMessage) -> Result<(), Error> {
@@ -88,7 +87,11 @@ impl OperatorInterface {
         tokio::pin!(tx_fut);
         loop {
             tokio::select! {
-                _ = self.rx() => {}
+                msg = self.rx() => {
+                    if let Some(msg) = msg {
+                        msg.print();
+                    }
+                }
                 _ = &mut tx_fut => {}
                 input = user_input() => {
                     tx_fut.set(Self::tx(&tx, input).fuse());
