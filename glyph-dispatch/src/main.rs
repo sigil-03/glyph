@@ -6,8 +6,6 @@ use thiserror::Error;
 use tokio::io::{Stdin, Stdout};
 use tokio::{self, select};
 
-use futures::future::try_join_all;
-use std::fmt;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use url::Url;
 
@@ -27,6 +25,8 @@ pub enum Error {
 struct LaunchOptions {
     #[arg(short, long)]
     target_url: Url,
+    #[arg(short, long)]
+    prompt_file: String,
 }
 
 struct Cli {
@@ -79,6 +79,19 @@ struct LlamaServerResponse {
     content: String,
 }
 
+// template
+// <|im_start|>system<|im_sep|>You are a helpful assistant<|im_end|><|im_start|>user<|im_sep|>Hello<|im_end|><|im_start|>assistant<|im_sep|>
+fn generate_prompt(system_prompt: &str, user_prompt: &str) -> String {
+    let out = format!(
+        "<|im_start|>system<|im_sep|>{system_prompt}<|im_end|><|im_start|>user<|im_sep|>{user_prompt}<|im_end|><|im_start|>assistant<|im_sep|>"
+    );
+    out
+}
+
+fn load_prompt_from_file(file: &str) -> String {
+    std::fs::read_to_string(file).expect("Could not read input file")
+}
+
 struct GlyphDispatch {
     system_prompt: String,
     target_url: Url,
@@ -87,14 +100,14 @@ struct GlyphDispatch {
 impl GlyphDispatch {
     fn new(config: LaunchOptions) -> Self {
         Self {
-            system_prompt: String::from("You are a helpful assistant"),
+            system_prompt: load_prompt_from_file(&config.prompt_file),
             target_url: config.target_url,
             client: reqwest::Client::new(),
         }
     }
     async fn handle_user_input(&self, input: Cli) {
         let req = LlamaServerRequest {
-            prompt: input.input,
+            prompt: generate_prompt(&self.system_prompt, &input.input),
             n_predict: 128,
         };
         println!("URL: {}", self.target_url.as_str());
@@ -105,12 +118,10 @@ impl GlyphDispatch {
             .send()
             .await
             .expect("failed to handle user input");
-        println!(">> {:#?}", res);
         let res: LlamaServerResponse =
             serde_json::from_str(&res.text().await.expect("failed to get resp text"))
                 .expect("failed to parse input");
         println!(">> {}", res.content);
-        // println!(">> {:#?}", res.await.expect("failed to get text"));
     }
 }
 
