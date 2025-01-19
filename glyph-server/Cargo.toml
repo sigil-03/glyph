@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-glyph = {path="./lib/glyph"}
+glyph = {path="../lib/glyph"}
 serde = {version="1.0.217", features=["derive"]}
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "time"] }
 toml = "0.8.19"
