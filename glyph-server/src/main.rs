@@ -1,4 +1,3 @@
-mod counter_glyph;
 use counter_glyph::{Glyph as CounterGlyph, Config as CounterGlyphConfig};
 use glyph::Glyphic;
 use std::fs;
@@ -24,7 +23,7 @@ impl GlyphServer {
 
     pub async fn new() -> Self {
         Self {
-            counter: Self::load_glyph_from_file("./test/counter.toml").await,
+            counter: Self::load_glyph_from_file("../glyphs/counter-glyph/glyph_config.toml").await,
         }
     }
 
