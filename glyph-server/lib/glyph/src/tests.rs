@@ -1,4 +1,4 @@
-use super::Glyph;
+use super::Glyphic;
 
 #[derive(Clone)]
 struct TestGlyphConfig {
@@ -11,7 +11,7 @@ struct TestGlyph {
     name: String,
 }
 
-impl Glyph for TestGlyph {
+impl Glyphic for TestGlyph {
     type Config = TestGlyphConfig;
     type ExitData = TestGlyphExitData;
 
