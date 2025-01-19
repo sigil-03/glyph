@@ -1,5 +1,7 @@
 use glyph::Glyphic;
+use serde::{Deserialize};
 
+#[derive(Deserialize, Debug)]
 pub struct Config {
     initial_value: usize,
 }
