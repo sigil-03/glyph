@@ -3,8 +3,8 @@ pub trait Glyph {
     type Config;
     type ExitData;
     /// load() loads the plugin using the given configuration
-    fn load(config: Self::Config) -> Self;
+    fn load(config: Self::Config) -> impl std::future::Future<Output = Self> + Send;
 
     /// run() consumes `self` and runs
-    fn run(self) -> Self::ExitData;
+    fn run(self) -> impl std::future::Future<Output = Self::ExitData> + Send;
 }

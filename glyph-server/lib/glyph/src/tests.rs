@@ -15,22 +15,22 @@ impl Glyph for TestGlyph {
     type Config = TestGlyphConfig;
     type ExitData = TestGlyphExitData;
 
-    fn load(config: Self::Config) -> Self {
+    async fn load(config: Self::Config) -> Self {
         Self { name: config.name }
     }
 
-    fn run(self) -> Self::ExitData {
+    async fn run(self) -> Self::ExitData {
         Self::ExitData { name: self.name }
     }
 }
 
-#[test]
+#[tokio::test]
 /// test loading a glyph, running it, and collecting the exit data
-fn load_and_run() {
+async fn load_and_run() {
     let config = TestGlyphConfig {
         name: String::from("Test"),
     };
-    let glyph = TestGlyph::load(config.clone());
-    let exit_data = glyph.run();
+    let glyph = TestGlyph::load(config.clone()).await;
+    let exit_data = glyph.run().await;
     assert_eq!(exit_data.name, config.name);
 }
