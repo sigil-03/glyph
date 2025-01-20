@@ -37,8 +37,10 @@ impl GlyphServer {
     }
 
     pub async fn run(self) {
-        let out = self.counter.run().await;
-        println!("output: {:#?}", out);
+        let out = tokio::spawn(self.counter.run());
+
+        let res = tokio::join!(out);
+        println!("output: {:#?}", res);
     }
 }
 
