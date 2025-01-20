@@ -6,7 +6,8 @@ edition = "2024"
 [dependencies]
 glyph = {path="../lib/glyph"}
 serde = {version="1.0.217", features=["derive"]}
-tokio = { version = "1.43.0", features = ["rt-multi-thread", "time"] }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "time", "net"] }
 toml = "0.8.19"
 
 counter-glyph = {path="../glyphs/counter-glyph"}
+clap = {version="4.5.26", features = ["derive"]}
