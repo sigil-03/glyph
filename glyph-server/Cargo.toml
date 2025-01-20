@@ -12,3 +12,5 @@ toml = "0.8.19"
 counter-glyph = {path="../glyphs/counter-glyph"}
 clap = {version="4.5.26", features = ["derive"]}
 thiserror = "2.0.11"
+
+interpreter = {path="../lib/interpreter"}

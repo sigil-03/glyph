@@ -47,7 +47,13 @@ where
             match socket.try_read(&mut data) {
                 Ok(n) => {
                     let input = std::str::from_utf8(&data[0..n]).expect("not utf8");
-                    println!("rx: {input}");
+                    if let Ok(parsed) = interpreter::interpret_glyphic(input) {
+                        println!("GLYPHIC: {parsed:#?}");
+                    } else {
+                        println!("GLYPHIC: INVALID");
+                        // TODO: for now, just drop the connection if we receive invalid glyphic syntax
+                        return Err(Error::ProcessSocketError);
+                    }
                 }
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                     // TODO - add some more graceful handling here maybe for unexpected disconnect
