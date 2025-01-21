@@ -8,6 +8,7 @@ use tokio::io::{ErrorKind, Interest};
 use tokio::net::{TcpListener, TcpStream};
 use channel_interface::{Interface, InterfaceHandle};
 use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::task;
 
 
 #[derive(Error, Debug)]
@@ -61,11 +62,11 @@ impl FileLoader {
             interface
         }
     }
-    pub async fn spawn() -> InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg> {
+    pub async fn spawn() -> (task::JoinHandle<()>, InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>) {
         let (internal_handle, external_handle) = Self::init_interface(9);
         let node = Self::new(internal_handle);
-        tokio::spawn(async move {node.run()});
-        external_handle
+        let join_handle = tokio::spawn(async move {node.run()});
+        (join_handle, external_handle)
     }
     fn run(self) {
         tokio::time::sleep(tokio::time::Duration::from_millis(3000));
@@ -118,11 +119,11 @@ impl NetHandler{
             interface
         }
     }
-    pub async fn spawn() -> InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg> {
+    pub async fn spawn() -> (task::JoinHandle<()>, InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>) {
         let (internal_handle, external_handle) = Self::init_interface(9);
         let node = Self::new(internal_handle);
-        tokio::spawn(async move {node.run()});
-        external_handle
+        let join_handle = tokio::spawn(async move {node.run()});
+        (join_handle, external_handle)
     }
     fn run(self) {
         tokio::time::sleep(tokio::time::Duration::from_millis(3000));
@@ -153,9 +154,12 @@ impl GlyphClient {
 
     pub async fn run(self) {
         // let interface = Interface::init_interface(9);
-        let net = NetHandler::spawn();
-        let file = FileLoader::spawn();
-        loop{}
+        let (net_join, net_interface) = NetHandler::spawn().await;
+        let (file_join, file_interface) = FileLoader::spawn().await;
+        tokio::join!(net_join, file_join);
+        // loop{
+        //     tokio::time::sleep(tokio::time::Duration::from_millis(1000));
+        // }
         // start our tcp listener
         // let net = tokio::spawn(run_net());
         // let file = tokio::spawn(run_file());
