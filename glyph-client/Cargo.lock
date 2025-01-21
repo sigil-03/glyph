@@ -89,6 +89,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "channel-interface"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "clap"
 version = "4.5.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -144,7 +152,9 @@ checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 name = "glyph-client"
 version = "0.1.0"
 dependencies = [
+ "channel-interface",
  "clap",
+ "interpreter",
  "serde",
  "thiserror",
  "tokio",
@@ -155,6 +165,15 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "interpreter"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "is_terminal_polyfill"
