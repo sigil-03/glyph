@@ -12,8 +12,8 @@ where
     TX: std::marker::Send + 'static,
     RX: std::marker::Send + 'static,
 {
-    tx: Sender<TX>,
-    rx: Receiver<RX>,
+    pub tx: Sender<TX>,
+    pub rx: Receiver<RX>,
 }
 
 impl<TX, RX> InterfaceHandle<TX, RX>
@@ -54,14 +54,12 @@ pub struct TestNode {
 
 impl TestNode {
     fn new(interface: InterfaceHandle<TestTxMessage, TestRxMessage>) -> Self {
-        Self {
-            interface
-        }
+        Self { interface }
     }
     pub async fn spawn() -> InterfaceHandle<TestRxMessage, TestTxMessage> {
         let (internal_handle, external_handle) = Self::init_interface(9);
         let node = TestNode::new(internal_handle);
-        tokio::spawn(async move {node.run()});
+        tokio::spawn(async move { node.run() });
         external_handle
     }
     fn run(self) {

@@ -1,3 +1,4 @@
+use channel_interface::{Interface, InterfaceHandle};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -6,10 +7,11 @@ use std::net::SocketAddr;
 use thiserror::Error;
 use tokio::io::{ErrorKind, Interest};
 use tokio::net::{TcpListener, TcpStream};
-use channel_interface::{Interface, InterfaceHandle};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task;
 
+use futures::future::{Fuse, FusedFuture, FutureExt};
+use futures::pin_mut;
 
 #[derive(Error, Debug)]
 enum Error {
@@ -27,10 +29,9 @@ struct LaunchOptions {
 
 #[derive(Subcommand)]
 enum LaunchMode {
-    File{input_file: String},
-    Interactive,   
+    File { input_file: String },
+    Interactive,
 }
-
 
 struct FileLoader {
     interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>,
@@ -50,26 +51,35 @@ impl Interface for FileLoader {
         let (ch1_tx, ch1_rx) = mpsc::channel(depth);
         let (ch2_tx, ch2_rx) = mpsc::channel(depth);
 
-        let int_handle = InterfaceHandle::<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>::new(ch1_tx, ch2_rx);
-        let ext_handle = InterfaceHandle::<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>::new(ch2_tx, ch1_rx);
+        let int_handle =
+            InterfaceHandle::<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>::new(
+                ch1_tx, ch2_rx,
+            );
+        let ext_handle =
+            InterfaceHandle::<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>::new(
+                ch2_tx, ch1_rx,
+            );
         (int_handle, ext_handle)
     }
 }
 
 impl FileLoader {
-    fn new(interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>) -> Self {
-        Self {
-            interface
-        }
+    fn new(
+        interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>,
+    ) -> Self {
+        Self { interface }
     }
-    pub async fn spawn() -> (task::JoinHandle<()>, InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>) {
+    pub async fn spawn() -> (
+        task::JoinHandle<()>,
+        InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>,
+    ) {
         let (internal_handle, external_handle) = Self::init_interface(9);
         let node = Self::new(internal_handle);
-        let join_handle = tokio::spawn(async move {node.run()});
+        let join_handle = tokio::spawn(async move { node.run().await });
         (join_handle, external_handle)
     }
-    fn run(self) {
-        tokio::time::sleep(tokio::time::Duration::from_millis(3000));
+    pub async fn run(self) {
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("File Loader: Running");
     }
 }
@@ -92,16 +102,24 @@ impl Interface for NetHandler {
         let (ch1_tx, ch1_rx) = mpsc::channel(depth);
         let (ch2_tx, ch2_rx) = mpsc::channel(depth);
 
-        let int_handle = InterfaceHandle::<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>::new(ch1_tx, ch2_rx);
-        let ext_handle = InterfaceHandle::<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>::new(ch2_tx, ch1_rx);
+        let int_handle =
+            InterfaceHandle::<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>::new(
+                ch1_tx, ch2_rx,
+            );
+        let ext_handle =
+            InterfaceHandle::<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>::new(
+                ch2_tx, ch1_rx,
+            );
         (int_handle, ext_handle)
     }
 }
 
-impl NetHandler{
+impl NetHandler {
     async fn run_net() {
         // open socket
-        let socket = TcpStream::connect("127.0.0.1:8080").await.expect("Failed to open TCP socket");
+        let socket = TcpStream::connect("127.0.0.1:8080")
+            .await
+            .expect("Failed to open TCP socket");
 
         loop {
             let ready = socket
@@ -109,31 +127,68 @@ impl NetHandler{
                 .await
                 .expect("socket ready failed");
 
-            if ready.is_writable() {
-            }
+            if ready.is_writable() {}
         }
     }
 
-    fn new(interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>) -> Self {
-        Self {
-            interface
-        }
+    fn new(
+        interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>,
+    ) -> Self {
+        Self { interface }
     }
-    pub async fn spawn() -> (task::JoinHandle<()>, InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>) {
+    pub async fn spawn() -> (
+        task::JoinHandle<()>,
+        InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>,
+    ) {
         let (internal_handle, external_handle) = Self::init_interface(9);
         let node = Self::new(internal_handle);
-        let join_handle = tokio::spawn(async move {node.run()});
+        let join_handle = tokio::spawn(async move { node.run().await });
         (join_handle, external_handle)
     }
-    fn run(self) {
-        tokio::time::sleep(tokio::time::Duration::from_millis(3000));
+    pub async fn run(self) {
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("Net Handler: Running");
     }
 }
 
-struct GlyphClient {
+struct MessageBus {}
 
+type NetHandlerInterface =
+    InterfaceHandle<<NetHandler as Interface>::RxMsg, <NetHandler as Interface>::TxMsg>;
+type FileHandlerInterface =
+    InterfaceHandle<<FileLoader as Interface>::RxMsg, <FileLoader as Interface>::TxMsg>;
+
+impl MessageBus {
+    pub fn new() -> Self {
+        Self {}
+    }
+    pub async fn spawn(
+        net_interface: NetHandlerInterface,
+        file_interface: FileHandlerInterface,
+    ) -> task::JoinHandle<()> {
+        let node = Self::new();
+        let join_handle =
+            tokio::spawn(async move { node.run(net_interface, file_interface).await });
+        join_handle
+    }
+    pub async fn run(
+        self,
+        net_interface: NetHandlerInterface,
+        file_interface: FileHandlerInterface,
+    ) {
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+        println!("Message Bus: Running");
+
+        // let net_rx_trigger_fut = net_interface.rx.recv();
+
+        // tokio::pin!(net_rx_trigger_fut);
+        // loop {
+        //     tokio::select!(_ = net_rx_trigger_fut => {} )
+        // }
+    }
 }
+
+struct GlyphClient {}
 
 impl GlyphClient {
     // pub async fn load_glyph_from_file<T>(file: &str) -> T
@@ -148,25 +203,14 @@ impl GlyphClient {
     // }
 
     pub async fn new() -> Self {
-        Self {
-        }
+        Self {}
     }
 
     pub async fn run(self) {
-        // let interface = Interface::init_interface(9);
         let (net_join, net_interface) = NetHandler::spawn().await;
         let (file_join, file_interface) = FileLoader::spawn().await;
-        tokio::join!(net_join, file_join);
-        // loop{
-        //     tokio::time::sleep(tokio::time::Duration::from_millis(1000));
-        // }
-        // start our tcp listener
-        // let net = tokio::spawn(run_net());
-        // let file = tokio::spawn(run_file());
-
-
-        // let res = tokio::join!(net);
-        // println!("output: {:#?}", res);
+        let message_bus_join = MessageBus::spawn(net_interface, file_interface).await;
+        tokio::join!(net_join, file_join, message_bus_join);
     }
 }
 
@@ -193,7 +237,7 @@ impl GlyphClient {
 //                     } else {
 //                         println!("GLYPHIC: INVALID");
 //                     }
-                        
+
 //                 }
 //                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
 //                     // TODO - add some more graceful handling here maybe for unexpected disconnect
@@ -208,9 +252,6 @@ impl GlyphClient {
 //         }
 //     }
 // }
-
-
-
 
 // let recipe: TomlRecipe = toml::from_str(&file).expect("Could not parse TOML file");
 
