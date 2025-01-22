@@ -173,18 +173,31 @@ impl MessageBus {
     }
     pub async fn run(
         self,
-        net_interface: NetHandlerInterface,
-        file_interface: FileHandlerInterface,
+        mut net_interface: NetHandlerInterface,
+        mut file_interface: FileHandlerInterface,
     ) {
         tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("Message Bus: Running");
 
-        // let net_rx_trigger_fut = net_interface.rx.recv();
+        loop {
+            tokio::select!(
+                    ret = net_interface.rx.recv()  => {
+                        match ret {
+                            None => break,
+                            Some(_) => {},
+                        }
+                        println!("NET RX TRIGGER");
 
-        // tokio::pin!(net_rx_trigger_fut);
-        // loop {
-        //     tokio::select!(_ = net_rx_trigger_fut => {} )
-        // }
+                    }
+                    ret = file_interface.rx.recv() => {
+                        match ret {
+                            None => break,
+                            Some(_) => {},
+                        }
+                        println!("FILE RX TRIGGER");
+                    }
+            )
+        }
     }
 }
 
