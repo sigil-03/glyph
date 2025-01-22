@@ -2,13 +2,21 @@ use channel_interface::{Interface, InterfaceHandle};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use std::fs;
 use std::net::SocketAddr;
 use thiserror::Error;
 use tokio::io::{ErrorKind, Interest};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task;
+use tokio::{
+    fs::File,
+    io::{
+        // This trait needs to be imported, as the lines function being
+        // used on reader is defined there
+        AsyncBufReadExt,
+        BufReader,
+    },
+};
 
 use futures::future::{Fuse, FusedFuture, FutureExt};
 use futures::pin_mut;
@@ -34,6 +42,7 @@ enum LaunchMode {
 }
 
 struct FileLoader {
+    file: String,
     interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>,
 }
 
@@ -65,22 +74,43 @@ impl Interface for FileLoader {
 
 impl FileLoader {
     fn new(
+        file: &str,
         interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>,
     ) -> Self {
-        Self { interface }
+        Self {
+            file: String::from(file),
+            interface,
+        }
     }
     pub async fn spawn() -> (
         task::JoinHandle<()>,
         InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>,
     ) {
         let (internal_handle, external_handle) = Self::init_interface(9);
-        let node = Self::new(internal_handle);
+        let node = Self::new("../test/counter-test.glyphic", internal_handle);
         let join_handle = tokio::spawn(async move { node.run().await });
         (join_handle, external_handle)
     }
     pub async fn run(self) {
         tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("File Loader: Running");
+
+        let file = File::open(self.file).await.expect("Failed to open file");
+        let reader = BufReader::new(file);
+        let mut lines = reader.lines();
+
+        while let Some(line) = lines.next_line().await.expect("Failed to read file") {
+            self.interface
+                .tx
+                .send(
+                    interpreter::interpret_glyphic(&line)
+                        .expect("Failed to interpret glyphic syntax"),
+                )
+                .await
+                .expect("Failed to send glyphic syntax");
+        }
+        // run forever so the channels don't close
+        loop {}
     }
 }
 
@@ -145,9 +175,23 @@ impl NetHandler {
         let join_handle = tokio::spawn(async move { node.run().await });
         (join_handle, external_handle)
     }
-    pub async fn run(self) {
+    pub async fn run(mut self) {
         tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("Net Handler: Running");
+
+        // run forever so the channels don't close
+        loop {
+            tokio::select!(
+                ret = self.interface.rx.recv()  => {
+                    match ret {
+                        None => {},
+                        Some(value) => {
+                            println!("TX REQUEST: {value:#?}")
+                        },
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -182,19 +226,21 @@ impl MessageBus {
         loop {
             tokio::select!(
                     ret = net_interface.rx.recv()  => {
+                        println!("NET RX TRIGGER");
                         match ret {
                             None => break,
                             Some(_) => {},
                         }
-                        println!("NET RX TRIGGER");
 
                     }
                     ret = file_interface.rx.recv() => {
+                        println!("FILE RX TRIGGER");
                         match ret {
                             None => break,
-                            Some(_) => {},
+                            Some(value) => {
+                                net_interface.tx.send(value).await.expect("failed to send glyph to net interface");
+                            },
                         }
-                        println!("FILE RX TRIGGER");
                     }
             )
         }
