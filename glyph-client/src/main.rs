@@ -87,7 +87,7 @@ impl FileLoader {
         InterfaceHandle<<Self as Interface>::RxMsg, <Self as Interface>::TxMsg>,
     ) {
         let (internal_handle, external_handle) = Self::init_interface(9);
-        let node = Self::new("../test/counter-test.glyphic", internal_handle);
+        let node = Self::new("../test/counter-test.gs", internal_handle);
         let join_handle = tokio::spawn(async move { node.run().await });
         (join_handle, external_handle)
     }
