@@ -11,3 +11,4 @@ tokio = { version = "1.43.0", features = ["rt-multi-thread", "rt", "time", "net"
 channel-interface = {path="../lib/channel-interface"}
 interpreter = {path="../lib/interpreter"}
 futures = "0.3.31"
+serde_json = "1.0.137"

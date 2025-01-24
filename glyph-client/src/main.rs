@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::net::SocketAddr;
 use thiserror::Error;
-use tokio::io::{ErrorKind, Interest};
+use tokio::io::{AsyncWriteExt, ErrorKind, Interest};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task;
@@ -145,22 +145,6 @@ impl Interface for NetHandler {
 }
 
 impl NetHandler {
-    async fn run_net() {
-        // open socket
-        let socket = TcpStream::connect("127.0.0.1:8080")
-            .await
-            .expect("Failed to open TCP socket");
-
-        loop {
-            let ready = socket
-                .ready(Interest::WRITABLE)
-                .await
-                .expect("socket ready failed");
-
-            if ready.is_writable() {}
-        }
-    }
-
     fn new(
         interface: InterfaceHandle<<Self as Interface>::TxMsg, <Self as Interface>::RxMsg>,
     ) -> Self {
@@ -179,6 +163,11 @@ impl NetHandler {
         tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("Net Handler: Running");
 
+        // open socket
+        let mut socket = TcpStream::connect("127.0.0.1:8080")
+            .await
+            .expect("Failed to open TCP socket");
+
         // run forever so the channels don't close
         loop {
             tokio::select!(
@@ -186,7 +175,16 @@ impl NetHandler {
                     match ret {
                         None => {},
                         Some(value) => {
-                            println!("TX REQUEST: {value:#?}")
+                            println!("TX REQUEST: {value:#?}");
+                            let ready = socket
+                                .ready(Interest::WRITABLE)
+                                .await
+                                .expect("socket ready failed");
+
+                            if ready.is_writable() {
+                                socket.write_all(&serde_json::to_vec(&value).expect("Failed to serialize command")).await.expect("failed to write to socket");
+                                socket.flush().await.expect("failed to flush the buffer");
+                            }
                         },
                     }
                 }
