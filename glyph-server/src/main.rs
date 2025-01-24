@@ -46,8 +46,8 @@ where
 
             match socket.try_read(&mut data) {
                 Ok(n) => {
-                    let input = std::str::from_utf8(&data[0..n]).expect("not utf8");
-                    if let Ok(parsed) = interpreter::interpret_glyphic(input) {
+                    if let Ok(parsed) = serde_json::from_slice::<interpreter::Commands>(&data[0..n])
+                    {
                         println!("GLYPHIC: {parsed:#?}");
                     } else {
                         println!("GLYPHIC: INVALID");
