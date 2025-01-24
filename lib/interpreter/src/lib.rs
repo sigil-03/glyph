@@ -11,7 +11,7 @@ pub enum Error {
     ParseError(#[from] clap::error::Error),
 }
 
-#[derive(Parser, ValueEnum, Serialize, Debug, Clone)]
+#[derive(Parser, ValueEnum, Serialize, Deserialize, Debug, Clone)]
 pub enum Commands {
     #[value()]
     Test,
