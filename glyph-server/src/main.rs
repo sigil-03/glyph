@@ -57,8 +57,7 @@ where
                 }
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                     // TODO - add some more graceful handling here maybe for unexpected disconnect
-                    // this solves the problem, but doesn't allow established sessions to continue
-                    return Err(Error::ProcessSocketError);
+                    continue;
                 }
                 Err(e) => {
                     println!("Error: {:#?}", e);
@@ -72,7 +71,7 @@ where
 async fn run_net(listener: TcpListener) {
     loop {
         let (socket, addr) = listener.accept().await.expect("could not accept listener");
-        process_socket::<Commands>(socket, addr).await;
+        tokio::spawn(process_socket::<Commands>(socket, addr));
     }
 }
 
