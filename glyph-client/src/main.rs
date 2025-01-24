@@ -92,7 +92,6 @@ impl FileLoader {
         (join_handle, external_handle)
     }
     pub async fn run(self) {
-        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("File Loader: Running");
 
         let file = File::open(self.file).await.expect("Failed to open file");
@@ -160,7 +159,6 @@ impl NetHandler {
         (join_handle, external_handle)
     }
     pub async fn run(mut self) {
-        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("Net Handler: Running");
 
         // open socket
@@ -218,7 +216,6 @@ impl MessageBus {
         mut net_interface: NetHandlerInterface,
         mut file_interface: FileHandlerInterface,
     ) {
-        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
         println!("Message Bus: Running");
 
         loop {
