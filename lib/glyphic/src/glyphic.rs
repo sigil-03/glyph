@@ -2,6 +2,7 @@
 pub trait Glyphic {
     type Config;
     type ExitData;
+
     /// load() loads the plugin using the given configuration
     fn load(config: Self::Config) -> impl std::future::Future<Output = Self> + Send;
 
