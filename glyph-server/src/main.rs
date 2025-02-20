@@ -1,6 +1,6 @@
 use clap::Parser;
 use counter_glyph::{Config as CounterGlyphConfig, Glyph as CounterGlyph};
-use glyph::Glyphic;
+use glyphic::Glyphic;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::fs;

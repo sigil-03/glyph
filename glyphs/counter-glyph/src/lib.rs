@@ -1,4 +1,4 @@
-use glyph::Glyphic;
+use glyphic::Glyphic;
 use serde::{Deserialize};
 
 #[derive(Deserialize, Debug)]
